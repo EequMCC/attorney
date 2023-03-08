@@ -41,7 +41,6 @@ class Attorney(MyWin):
         super(Attorney, self).__init__()
         self.me = {"name":"","img":"","casedir":""}
         self.current_log = ["","","","","",""]
-        self.all_laws = {}
         self.current_case = self.product_currentcase()
         self.current_collect = []
         self.main_tree_items = {"cases":[],"logs":[],"collects":[],"法律": {}}
@@ -172,7 +171,7 @@ class Attorney(MyWin):
         w = 0
         if (result == 3 and not os.path.exists("profile")) or result == 1:
                 self.me["name"] = "用户1"
-                self.me["img"] = "userdefault.png"
+                self.me["img"] = "icons\\userdefault.png"
                 self.me["casedir"] = "案件库"
                 self.me["words"] = "心诚所至，金石为开"
                 if not os.path.exists("案件库"):
@@ -205,15 +204,15 @@ class Attorney(MyWin):
             create_law.output_paper(self.me["casedir"] + "\\" + self.current_case["案件名"], self.current_case, what)
 
         groupBox_menu = QMenu(self)
-        actionA = QAction(QIcon('paper.png'), u'生成起诉状', self)
+        actionA = QAction(QIcon('icons\\paper.png'), u'生成起诉状', self)
         actionA.triggered.connect(lambda :get_paper("民事起诉状"))
         groupBox_menu.addAction(actionA)
 
-        actionB = QAction(QIcon('defence.png'), u'生成答辩状', self)
+        actionB = QAction(QIcon('icons\\defence.png'), u'生成答辩状', self)
         actionB.triggered.connect(lambda :get_paper("答辩状"))
         groupBox_menu.addAction(actionB)
 
-        actionE = QAction(QIcon('tasks.png'), u'导出日志', self)
+        actionE = QAction(QIcon('icons\\tasks.png'), u'导出日志', self)
         actionE.triggered.connect(get_alllog)
         groupBox_menu.addAction(actionE)
         groupBox_menu.popup(QCursor.pos())
@@ -392,7 +391,7 @@ class Attorney(MyWin):
                 return
             if os.path.exists(cachtxt):
                 os.remove(cachtxt)
-            self.search.actions()[0].setIcon(QIcon("add_ok.png"))
+            self.search.actions()[0].setIcon(QIcon("icons\\add_ok.png"))
             # txt = [re.sub("\s[0-9]{6}\s", " ", data[1]),data[1]+ " " + data[3] + "▶" + re.sub("^[0-9\s-]*","",self.current_case["案件名"] if self.current_case["案件名"] != "" else self.log_case.currentText()),
             # data[1][0:10] + " " + data[2]][what]
             # root = None
@@ -480,7 +479,7 @@ class Attorney(MyWin):
             parent = self.current_case[self.tree_case.currentItem().parent().text(0)]
             if who == "设置委托人":
                 txt = "委托人"
-                icon = "client.png"
+                icon = "icons\\client.png"
             else:
                 icon = txt = ""
             parent[self.tree_case.currentIndex().row()][2] = txt
@@ -542,7 +541,7 @@ class Attorney(MyWin):
             icon = 'delete.png'
         if txt == "":
             return
-        actionA = QAction(QIcon(icon), txt, self)
+        actionA = QAction(QIcon("icons\\"+icon), txt, self)
         actionA.triggered.connect(up_law)
         groupBox_menu.addAction(actionA)
 
@@ -556,11 +555,11 @@ class Attorney(MyWin):
         else:
             selectedText = sender.textCursor().selectedText()
         if selectedText != "":
-            actionA = QAction(QIcon('clipboard.png'), u'复制', self)
+            actionA = QAction(QIcon('icons\\clipboard.png'), u'复制', self)
             actionA.triggered.connect(lambda :sender.copy())#textCursor().selectedText()
             groupBox_menu.addAction(actionA)
         if sender.objectName() != "法条":
-            actionE = QAction(QIcon('paste.png'), u'粘贴', self)
+            actionE = QAction(QIcon('icons\\paste.png'), u'粘贴', self)
             actionE.triggered.connect(lambda :sender.paste())
             groupBox_menu.addAction(actionE)
 
@@ -578,7 +577,7 @@ class Attorney(MyWin):
                 t.write(json.dumps(self.current_collect,ensure_ascii=False))
 
         if selectedText != "":
-            actionB = QAction(QIcon('star.png'), u'收藏', self)
+            actionB = QAction(QIcon('icons\\star.png'), u'收藏', self)
             actionB.setObjectName("收藏")
             actionB.triggered.connect(collect)
             groupBox_menu.addAction(actionB)
@@ -597,7 +596,7 @@ class Attorney(MyWin):
 
         if selectedText != "":
             menu = QMenu(u'加入到', self)
-            menu.setIcon(QIcon("paper.png"))
+            menu.setIcon(QIcon("icons\\paper.png"))
             for i in self.main_tree_items["cases"]:
                 case = i.data(0,QtCore.Qt.UserRole)
                 if case[5] == "" or case[0] == self.current_case["id"]:
@@ -647,72 +646,73 @@ class Attorney(MyWin):
             root.setData(0, QtCore.Qt.UserRole, i)
             root.setToolTip(0,task)
             if i[-1] == "":
-                root.setIcon(0,QIcon("tasks.png"))
+                root.setIcon(0,QIcon("icons\\tasks.png"))
             else:
-                root.setIcon(0, QIcon("tasks_ok.png"))
+                root.setIcon(0, QIcon("icons\\tasks_ok.png"))
                 root.setForeground(0, QColor(100, 100, 100))
             self.main_tree_items["logs"].append(root)
         self.mutex.unlock()
 
     def load_alllaws(self):
-        self.all_laws = {}
-        for i in sorted(os.listdir("laws"),key=lambda x: ''.join(chain.from_iterable(pinyin(x, style=Style.TONE3)))):
-            if i == "usual_law":
-                with open("laws\\usual_law", "r", encoding="utf-8") as o:
-                    self.usual_law = json.loads(o.read())
-                continue
-            with open("laws\\"+i, "r", encoding="utf-8-sig") as t:
-                codes = t.readlines()
-            laws = [""]
-            for code in codes:
-                if code == "\n":
-                    continue
-                if re.search("(^第.+?[条节章编][、.\s]*)|(^[0-9一二三四五六七八九十]+[、.\s]+)", code) is not None:
-                    laws.append(code)
-                else:
-                    laws[-1] = laws[-1] + code
-            self.all_laws[i[0:-4]] = laws if laws[0] != "" else laws[1:]
+        with open("laws\\usual_law", "r", encoding="utf-8") as o:
+            self.usual_law = json.loads(o.read())
+        conn = sqlite3.connect("LawData.db")
+        cur = conn.cursor()
+        law1 = cur.execute("select id,title from laws").fetchall()
+        law2 = cur.execute("select id,title from courtsay").fetchall()
+        law3 = cur.execute("select id,title from governsay").fetchall()
+        laws = sorted(law1,key=lambda x: ''.join(chain.from_iterable(pinyin(x[1], style=Style.TONE3))))
+        courtsay = sorted(law2, key=lambda x: ''.join(chain.from_iterable(pinyin(x[1], style=Style.TONE3))))
+        governsay = sorted(law3, key=lambda x: ''.join(chain.from_iterable(pinyin(x[1], style=Style.TONE3))))
 
-        def give_child(parent):
-            child = QTreeWidgetItem(parent)
-            child.setText(0, j.replace("\n", ""))
-            child.setFirstColumnSpanned(True)
-            child.setData(0, QtCore.Qt.UserRole, index)
-            child.setToolTip(0,j.replace("\n", ""))
-            return child
+        def make_item(txt,parent=None,index=None,bold=False):
+            item = QTreeWidgetItem()
+            item.setText(0, txt)
+            item.setToolTip(0, txt)
+            item.setFirstColumnSpanned(True)
+            if index is not None:
+                item.setData(0, QtCore.Qt.UserRole, index)
+            if bold:
+                font = QFont()
+                font.setBold(True)
+                item.setFont(0, font)
+            if parent is not None:
+                parent.addChild(item)
+            return item
 
-        order = 0
         self.main_tree_items["法律"] = {}
-        for i in self.all_laws.keys():
-            if i in self.main_tree_items["法律"].keys():
-                continue
-            root = QTreeWidgetItem()
-            root.setText(0, i)
-            root.setIcon(0,QIcon("book.png"))
-            font = QFont()
-            font.setBold(True)
-            root.setFont(0, font)
-            root.setFirstColumnSpanned(True)
-            root.setData(0,QtCore.Qt.UserRole,order)
-            root.setToolTip(0,i)
-            order = order + 1
-            if i not in self.usual_law:
-                root.setForeground(0, QColor(100, 100, 100))
-            self.main_tree_items["法律"][i] = root
-            index = 0
-            parent = root
-            for j in self.all_laws[i]:
-                if re.search("(^第.+?编\s+)", j) is not None:
-                    if re.search("(^第.+?[章编]\s+)|(^[一二三四五六七八九十]+[、.\s]+)",parent.text(0)) is not None:
-                        parent = root
-                    parent = give_child(parent)
-                elif re.search("(^第.+?章\s+)|(^[一二三四五六七八九十]+[、.\s]+)", j) is not None:
-                    if re.search("(^第.+?章\s+)|(^[一二三四五六七八九十]+[、.\s]+)",parent.text(0)) is not None:
-                        parent = parent.parent()
-                    parent = give_child(parent)
-                elif re.search("^第.+?节\s+", j) is not None:
-                    give_child(parent)
-                index = index + 1
+        usual_law = make_item("常用法律",bold=True)
+        usual_law.setIcon(0, QIcon("icons\\book.png"))
+        self.main_tree_items["法律"]["常用法律"] = usual_law
+        name_table = {"法律":"laws","司法解释":"courtsay","行政法规":"governsay"}
+        for n,kind in zip(list(name_table.keys()),[laws,courtsay,governsay]):
+            kindparent = make_item(n,bold=True)
+            kindparent.setIcon(0, QIcon("icons\\book.png"))
+            self.main_tree_items["法律"][n] = kindparent
+            order = 0
+            for i in kind:
+                if i[1] not in self.usual_law:
+                    root = make_item(i[1],kindparent,order,True)
+                    order = order + 1
+                    root.setForeground(0, QColor(100, 100, 100))
+                else:
+                    root = make_item(i[1], usual_law, None, True)
+                index = 0
+                parent = root
+                for j in cur.execute("select * from {} where id='{}'".format(name_table[n],i[0])).fetchall()[0][2:]:
+                    if j is None:
+                        continue
+                    if re.search("(^第.+?编\s+)", j) is not None:
+                        if re.search("(^第.+?[章编]\s+)|(^[一二三四五六七八九十]+[、.\s]+)",parent.text(0)) is not None:
+                            parent = root
+                        parent = make_item(j.replace("\n", ""),parent,index)
+                    elif re.search("(^第.+?章\s+)|(^[一二三四五六七八九十]+[、.\s]+)", j) is not None:
+                        if re.search("(^第.+?章\s+)|(^[一二三四五六七八九十]+[、.\s]+)",parent.text(0)) is not None:
+                            parent = parent.parent()
+                        parent = make_item(j.replace("\n", ""),parent,index)
+                    elif re.search("^第.+?节\s+", j) is not None:
+                        make_item(j.replace("\n", ""),parent,index)
+                    index = index + 1
 
     def load_allcases(self):
         self.mutex.lock()
@@ -744,9 +744,9 @@ class Attorney(MyWin):
             root.setData(0, QtCore.Qt.UserRole, i)
             root.setToolTip(0, re.sub("\s[0-9]{6}\s", " ", i[1]))
             if i[5] == "":
-                root.setIcon(0,QIcon("paper.png"))
+                root.setIcon(0,QIcon("icons\\paper.png"))
             else:
-                root.setIcon(0, QIcon("paper_ok.png"))
+                root.setIcon(0, QIcon("icons\\paper_ok.png"))
                 root.setForeground(0,QColor(100,100,100))
             self.main_tree_items["cases"].append(root)
         self.mutex.unlock()
@@ -767,7 +767,7 @@ class Attorney(MyWin):
         for i in fetchall:
             root = QTreeWidgetItem()
             root.setText(0, i[1][0:10] + " " + i[2])
-            root.setIcon(0,QIcon("star.png"))
+            root.setIcon(0,QIcon("icons\\star.png"))
             root.setFirstColumnSpanned(True)
             root.setData(0, QtCore.Qt.UserRole, i)
             root.setToolTip(0, i[1][0:10] + " " + i[2])
@@ -790,13 +790,10 @@ class Attorney(MyWin):
         self.main_tree.setRootIsDecorated(True)
         for i in range(self.main_tree.topLevelItemCount()):
             self.main_tree.takeTopLevelItem(0)
-        for i in self.usual_law:
-            if i not in self.main_tree_items["法律"].keys():
-                self.usual_law.remove(i)
-            self.main_tree.addTopLevelItem(self.main_tree_items["法律"][i])
+        for u in self.usual_law:
+            if u not in [i.text(0) for i in [self.main_tree_items["法律"]["常用法律"].child(j) for j in range(self.main_tree_items["法律"]["常用法律"].childCount())]]:
+                self.usual_law.remove(u)
         for i in self.main_tree_items["法律"].keys():
-            if i in self.usual_law:
-                continue
             self.main_tree.addTopLevelItem(self.main_tree_items["法律"][i])
 
     def show_case_all(self):
@@ -871,12 +868,15 @@ class Attorney(MyWin):
             zjb = "[一二三四五六七八九十章节编]"
         if zjb in "0123456789":
             zjb = "[0-9一二三四五六七八九十]"
-        parent = self.main_tree.currentItem()
+        lawitem = parent = self.main_tree.currentItem()
+        if lawitem in self.main_tree_items["法律"].values():
+            return
         while True:
-            law_name = parent.text(0)
-            parent = parent.parent()
             if parent is None:
                 break
+            lawitem = parent
+            parent = parent.parent().parent()
+        law_name = lawitem.text(0)
         current_law = self.all_laws[law_name]
         if law_name == txt[0:-1]:
             index = 0
@@ -911,7 +911,7 @@ class Attorney(MyWin):
     def add_or_showone(self):
         self.add_show = self.sender().objectName()
         if self.add_show not in ["main_tree","法律"]:
-            self.search.actions()[0].setIcon(QIcon("add.png"))
+            self.search.actions()[0].setIcon(QIcon("icons\\add.png"))
             if self.search_which.itemAt(0).widget().isVisible():
                 self.which_founction(self.add_show)
         else:
@@ -969,10 +969,9 @@ class Attorney(MyWin):
                 key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
                                      r'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders')
                 dir = winreg.QueryValueEx(key, "Desktop")[0]
-                lawfiles = QFileDialog.getOpenFileNames(self, '导入法律', dir, '文档文件 (*.docx)')[0]
+                lawfiles = QFileDialog.getOpenFileNames(self, '导入法律', dir, '文档文件 (*.docx *.txt)')[0]
                 if len(lawfiles) != 0:
                     self.current_item[1] = None
-                    # os.system("python create_law.py")
                     self.add_law_thread = MyThread([lambda :create_law.create_law(lawfiles,self.add_law_sig)])
                     self.add_law_thread.start()
                 return
@@ -1032,7 +1031,7 @@ class Attorney(MyWin):
         self.case_menu()
         for i,j in zip(labels,icon):
             root = QTreeWidgetItem(self.tree_case)
-            root.setIcon(0,QIcon(j))
+            root.setIcon(0,QIcon("icons\\"+j))
             root.setText(0, i)
             self.creat_line(root)
             if labels.index(i) in [3,8]:
@@ -1040,7 +1039,7 @@ class Attorney(MyWin):
             add = QToolButton()
             add.setObjectName("加")
             add.setStyleSheet("background-color:transparent;border:none;")
-            add.setIcon(QIcon("add.png"))
+            add.setIcon(QIcon("icons\\add.png"))
             add.setIconSize(QSize(15, 15))
             add.setMaximumSize(25, 25)
             add.clicked.connect(partial(self.creat_line,root))
@@ -1055,12 +1054,12 @@ class Attorney(MyWin):
 
     def case_menu(self):
         self.lineedit_menu = QMenu(self)
-        actionA = QAction(QIcon('client.png'), u'设置委托人', self)
+        actionA = QAction(QIcon('icons\\client.png'), u'设置委托人', self)
         actionA.triggered.connect(self.cach_case_inf)
         actionA.setObjectName("设置委托人")
         self.lineedit_menu.addAction(actionA)
 
-        actionB = QAction(QIcon('delete.png'), u'删除', self)
+        actionB = QAction(QIcon('icons\\delete.png'), u'删除', self)
         actionB.setObjectName("删除")
         self.lineedit_menu.addAction(actionB)
 
@@ -1099,7 +1098,7 @@ class Attorney(MyWin):
         for i in ran:
             child = QTreeWidgetItem(root)
             if root.text(0) in ["原告","被告","第三人"] and i[2] == "委托人":
-                child.setIcon(1, QIcon("client.png"))
+                child.setIcon(1, QIcon("icons\\client.png"))
             lineedit = QLineEdit()
             lineedit.setText(i[0])
             lineedit.setStyleSheet("color:black;font-weight:bold;font-size:14px;border-top:0px solid;border-bottom:1px solid;border-left:0px solid;border-right:0px solid;")
@@ -1128,7 +1127,7 @@ class Attorney(MyWin):
             if root.text(0) not in ["案由"]:
                 lineedit.customContextMenuRequested.connect(show_menu)
             action = QAction(self)
-            action.setIcon(QIcon("more.png"))
+            action.setIcon(QIcon("icons\\more.png"))
             action.triggered.connect(self.more_inf)
             if i[0] == "" and root.text(0) != "诉讼请求":
                 action.setEnabled(False)
@@ -1182,7 +1181,7 @@ class Attorney(MyWin):
         def make_root(text):
             root = QTreeWidgetItem()
             root.setText(0, text)
-            root.setIcon(0, QIcon("book.png"))
+            root.setIcon(0, QIcon("icons\\book.png"))
             font = QFont()
             font.setBold(True)
             root.setFont(0, font)
