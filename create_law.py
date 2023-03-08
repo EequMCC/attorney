@@ -6,7 +6,6 @@ import docx
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.shared import Pt
-from win32com import client as wc
 
 
 def create_law(files,sig):
@@ -14,30 +13,34 @@ def create_law(files,sig):
     for i in files:
         i = i.replace("/","\\")
         f_e = os.path.splitext(i)
-        try:
-            docs = docx.Document(i)
-        except:
-            continue
+        if i.endswith(".txt"):
+            with open(i, "r", encoding="utf-8-sig") as t:
+                codes = t.readlines()
+        else:
+            try:
+                docs = docx.Document(i)
+                codes = [i.text for i in docs.paragraphs]
+            except:
+                continue
         ok = kk = 0
         zjp = []
-        txt = "laws\\"+f_e[0].split("\\")[-1].replace("中华人民共和国","").replace("人民代表大会","人大")+".txt"
+        txt = "laws\\"+f_e[0].split("\\")[-1].replace("中华人民共和国","").replace("人民代表大会","人大").replace("常务委员会","常委")+".txt"
         if os.path.exists(txt):
             os.remove(txt)
         law_txt = []
         with open(txt,"a",encoding="utf-8") as tf:
-            for j in docs.paragraphs:
-                t = re.sub("\s+"," ",re.sub("^\s+","",j.text)) + "\n"
+            for j in codes:
+                t = re.sub("\s+"," ",re.sub("^\s+","",j)) + "\n"
                 c = re.findall("^第.+?([编章节])[、.\s]+", t)
-                if len(c) < 1:
-                    continue
-                if c[0] not in zjp and kk == 0:
-                    zjp.append(c[0])
-                    tf.write(t)
-                    law_txt.append(t)
-                    continue
-                else:
-                    kk = 1
-                if re.search("(^第.+?条[、.\s]*)|(^[0-9一二三四五六七八九十][、.\s]*)",t) is not None:
+                if kk == 0 and len(c) > 0:
+                    if c[0] not in zjp:
+                        zjp.append(c[0])
+                        tf.write(t)
+                        law_txt.append(t)
+                        continue
+                    else:
+                        kk = 1
+                if re.search("(^第.+?条[、.\s]+)|(^[0-9一二三四五六七八九十][、.\s]+)",t) is not None:
                     ok = 1
                 if ok == 1:
                     tf.write(t)
