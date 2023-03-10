@@ -18,9 +18,10 @@ def create_law(files,sig):
                 codes = t.readlines()
         else:
             try:
-                docs = docx.Document(i)
+                docs = docx.Document("D:\\Desktop\\attorney\\345\\司法解释\\"+i)
                 codes = [i.text for i in docs.paragraphs]
-            except:
+            except Exception as e:
+                print(e)
                 continue
         ok = kk = 0
         zjp = []
@@ -49,8 +50,12 @@ def create_law(files,sig):
         if len(law_txt) == 0:
             os.remove(txt)
             law_txts = law_txts + f_e[0]+"\n"
+        else:
+            os.remove("D:\\Desktop\\attorney\\345\\司法解释\\"+i)
 
-    sig.emit(law_txts)
+    # sig.emit(law_txts)
+
+# create_law(os.listdir("D:\\Desktop\\attorney\\345\\司法解释"),"")
 
 def output_paper(dir,conten,what):
     docs = docx.Document()
