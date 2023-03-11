@@ -504,23 +504,23 @@ class Attorney(MyWin):
             if self.sender().text() == u'删除':
                 yn = self.msg("确定删除？")
                 if yn == QMessageBox.Ok:
-                    for i in self.main_tree_items.keys():
-                        if self.main_tree.currentItem() in self.main_tree_items[i]:
-                            fetchall = self.record_database("delete from "+i+" where id="+self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)[0])
-                            if fetchall == 0:
-                                self.msg("案件库已断开")
-                                return
-                            self.main_tree_items[i].remove(self.main_tree.currentItem())
-                            break
-                    self.main_tree.takeTopLevelItem(self.main_tree.currentIndex().row())
+                    if self.main_tree.currentItem() in self.law_items:
+                        self.search_law("delete from {} where id='{}'".format(*table_data))
+                        self.search_law("delete from 常用法律 where id='{}'".format(table_data[1]))
+                        return
+                    if self.main_tree.currentItem() in other:
+                        fetchall = self.record_database("delete from {} where id='{}'".format(table_data[0],table_data[1][0]))
+                        if fetchall == 0:
+                            self.msg("案件库已断开")
+                            return
                 return
             if self.sender().text() == u'加入常用':
-                current_law = self.search_law("select title from {} where title='{}'".format(law_table_title[0],law_table_title[1]))[0]
+                current_law = self.search_law("select title from {} where title='{}'".format(*table_data))[0]
                 self.search_law("add",current_law[0])
-                add = self.main_tree_items["法律"][law_table_title[0]].takeChild(self.main_tree.currentIndex().row())
+                add = self.main_tree_items["法律"][table_data[0]].takeChild(self.main_tree.currentIndex().row())
                 self.main_tree_items["法律"]["常用法律"].addChild(add)
             else:
-                self.search_law("del",law_table_title[1])
+                self.search_law("del",table_data[1])
                 self.main_tree_items["法律"]["常用法律"].removeChild(self.main_tree.currentItem())
 
         if self.main_tree.currentItem() is None:
@@ -532,7 +532,7 @@ class Attorney(MyWin):
         lawitems_1 = [self.main_tree_items["法律"]["法律"].child(i) for i in range(self.main_tree_items["法律"]["法律"].childCount())]
         lawitems_2 = [self.main_tree_items["法律"]["司法解释"].child(i) for i in range(self.main_tree_items["法律"]["司法解释"].childCount())]
         lawitems_3 = [self.main_tree_items["法律"]["行政法规"].child(i) for i in range(self.main_tree_items["法律"]["行政法规"].childCount())]
-        law_table_title = self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)
+        table_data = self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)
         icon = 'upload.png'
         if self.main_tree.currentItem() in lawitems_1+lawitems_2+lawitems_3:
             txt = u'加入常用'
@@ -589,19 +589,19 @@ class Attorney(MyWin):
             case = list(self.sender().data())
             sender.copy()
             case[3] = case[3] + "\n"+self.clipboard.text()
-            fetchall = self.record_database("update cases set laws='"+case[3]+"' where id='"+case[0]+"'")
+            fetchall = self.record_database("update cases set laws='{}' where id='{}'".format(case[3],case[0]))
             if fetchall == 0:
                 self.msg("案件库已断开")
                 return
             for i in self.main_tree_items["cases"]:
-                if i.data(0,QtCore.Qt.UserRole)[0] == case[0]:
+                if i.data(0,QtCore.Qt.UserRole)[1][0] == case[0]:
                     i.setData(0,QtCore.Qt.UserRole,case)
 
         if selectedText != "":
             menu = QMenu(u'加入到', self)
             menu.setIcon(QIcon("icons\\paper.png"))
             for i in self.main_tree_items["cases"]:
-                case = i.data(0,QtCore.Qt.UserRole)
+                case = i.data(0,QtCore.Qt.UserRole)[1]
                 if case[5] == "" or case[0] == self.current_case["id"]:
                     action = QAction(re.sub("\s[0-9]{6}\s", " ", case[1]),self)
                     action.setData(case)
@@ -645,7 +645,7 @@ class Attorney(MyWin):
             root = QTreeWidgetItem()
             root.setText(0, task)
             root.setFirstColumnSpanned(True)
-            root.setData(0, QtCore.Qt.UserRole, i)
+            root.setData(0, QtCore.Qt.UserRole, ["logs",i])
             root.setToolTip(0,task)
             if i[-1] == "":
                 root.setIcon(0,QIcon("icons\\tasks.png"))
@@ -751,7 +751,7 @@ class Attorney(MyWin):
             root = QTreeWidgetItem()
             root.setText(0, re.sub("\s[0-9]{6}\s", " ", i[1]))
             root.setFirstColumnSpanned(True)
-            root.setData(0, QtCore.Qt.UserRole, i)
+            root.setData(0, QtCore.Qt.UserRole, ["cases",i])
             root.setToolTip(0, re.sub("\s[0-9]{6}\s", " ", i[1]))
             if i[5] == "":
                 root.setIcon(0,QIcon("icons\\paper.png"))
@@ -779,7 +779,7 @@ class Attorney(MyWin):
             root.setText(0, i[1][0:10] + " " + i[2])
             root.setIcon(0,QIcon("icons\\star.png"))
             root.setFirstColumnSpanned(True)
-            root.setData(0, QtCore.Qt.UserRole, i)
+            root.setData(0, QtCore.Qt.UserRole, ["collects",i])
             root.setToolTip(0, i[1][0:10] + " " + i[2])
             self.main_tree_items["collects"].append(root)
         self.mutex.unlock()
@@ -801,6 +801,7 @@ class Attorney(MyWin):
         for i in range(self.main_tree.topLevelItemCount()):
             self.main_tree.takeTopLevelItem(0)
         self.main_tree.addTopLevelItems(list(self.main_tree_items["法律"].values()))
+        self.main_tree.expandItem(self.main_tree_items["法律"]["常用法律"])#setExpanded(self.main_tree_items["法律"]["常用法律"].index(),True)#self.main_tree_items["法律"]["常用法律"].setExpanded(True)
 
     def show_case_all(self):
         for i in range(self.main_tree.topLevelItemCount()):
@@ -809,7 +810,7 @@ class Attorney(MyWin):
         done = 0
         doing = 0
         for i in self.main_tree_items["cases"]:
-            if i.data(0,QtCore.Qt.UserRole)[5] != "":
+            if i.data(0,QtCore.Qt.UserRole)[1][5] != "":
                 done = done + 1
             else:
                 doing = doing + 1
@@ -915,7 +916,7 @@ class Attorney(MyWin):
         self.mutex.unlock()
 
     def add_law(self,lawfiles,table):
-        law_txts = create_law.create_law(lawfiles)
+        law_txts = create_law.record_law(lawfiles)
         convert_law.record_law(table)
         self.law_thread.start()
         if law_txts != "":
@@ -1012,7 +1013,7 @@ class Attorney(MyWin):
     def show_one(self):
         def show_log():
             self.current_item[0] = self.main_tree.currentItem()
-            self.current_log = self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)
+            self.current_log = self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)[1]
             self.show_log_a()
 
         def show_law():
@@ -1030,7 +1031,7 @@ class Attorney(MyWin):
 
         def show_collect():
             self.current_item[3] = self.main_tree.currentItem()
-            self.current_collect = self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)
+            self.current_collect = self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)[1]
             self.show_collect_a()
 
         p = item = self.main_tree.currentItem()
@@ -1217,7 +1218,7 @@ class Attorney(MyWin):
             for i in self.main_tree_items["logs"]:
                 n = 0
                 for txt in these:
-                    for k in i.data(0,QtCore.Qt.UserRole)[1:]:
+                    for k in i.data(0,QtCore.Qt.UserRole)[1][1:]:
                         if txt in k:
                             n = n + 1
                             break
@@ -1231,7 +1232,7 @@ class Attorney(MyWin):
                     break
                 n = 0
                 for txt in these:
-                    for k in i.data(0,QtCore.Qt.UserRole)[1:]:
+                    for k in i.data(0,QtCore.Qt.UserRole)[1][1:]:
                         if i.data(0, QtCore.Qt.UserRole).index(k) >= 6:
                             for j in chain.from_iterable(pickle.loads(k)):
                                 if txt in j:
@@ -1247,7 +1248,7 @@ class Attorney(MyWin):
             for i in self.main_tree_items["collects"]:
                 n = 0
                 for txt in these:
-                    for k in i.data(0,QtCore.Qt.UserRole)[1:]:
+                    for k in i.data(0,QtCore.Qt.UserRole)[1][1:]:
                         if txt in k:
                             n = n + 1
                             break

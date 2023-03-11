@@ -6,6 +6,7 @@ from itertools import chain
 from pypinyin import pinyin, Style
 
 
+
 def record_law(table):
     conn = sqlite3.connect("LawData.db")
     cur = conn.cursor()
@@ -20,7 +21,7 @@ def record_law(table):
         x = re.sub("[《》()（）]", "", i)
         title = sss(x[0:-4])+x[0:-4]
         cur.execute("insert into {} (title) values(?)".format(table),(title,))
-        with open("laws\\"+i,"r",encoding="utf-8-sig") as t:
+        with open("laws\\"+i,"r",encoding="utf-8") as t:
             codes = t.readlines()
         law = [""]
         for code in codes:

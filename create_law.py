@@ -8,20 +8,36 @@ from docx.oxml.ns import qn
 from docx.shared import Pt
 
 
-def create_law(files):
+def opentxt(file):
+    if file.endswith(".txt"):
+        try:
+            with open(file, "r", encoding="utf-8-sig") as t:
+                codes = t.readlines()
+        except:
+            try:
+                with open(file, "r", encoding="utf-8") as t:
+                    codes = t.readlines()
+            except:
+                try:
+                    with open(file, "r") as t:
+                        codes = t.readlines()
+                except:
+                    codes = []
+    else:
+        try:
+            docs = docx.Document(file)
+            codes = [i.text for i in docs.paragraphs]
+        except:
+            codes = []
+    return codes
+
+
+def record_law(files):
     law_txts = ""
     for i in files:
         i = i.replace("/","\\")
         f_e = os.path.splitext(i)
-        if i.endswith(".txt"):
-            with open(i, "r", encoding="utf-8-sig") as t:
-                codes = t.readlines()
-        else:
-            try:
-                docs = docx.Document(i)
-                codes = [i.text for i in docs.paragraphs]
-            except:
-                continue
+        codes = opentxt(i)
         ok = kk = 0
         zjp = []
         txt = "laws\\"+f_e[0].split("\\")[-1].replace("中华人民共和国","").replace("人民代表大会","人大").replace("常务委员会","常委")+".txt"
