@@ -1,49 +1,45 @@
 import os.path
 import re
 import sqlite3
-import time
 from itertools import chain
 
 from pypinyin import pinyin, Style
 
-conn = sqlite3.connect("LawData.db")
-cur = conn.cursor()
-# cur.execute('''create table if not exists 行政法规 (title TEXT PRIMARY KEY)''')
-# conn.commit()
-# conn.close()
-# exit()
 
-def sss(x):
-    w = ""
-    x = re.sub("[《》（）]")
-    for i in chain.from_iterable(pinyin(x, style=Style.TONE3)):
-        w = w + i[0:-1]
-    return w
+def record_law(table):
+    conn = sqlite3.connect("LawData.db")
+    cur = conn.cursor()
 
-for i in os.listdir("行政法规"):
-    title = sss(i[0:-4])+i[0:-4]
-    cur.execute("insert into 行政法规 (title) values(?)",(title,))
-# print(cur.execute('select id,title from 行政法规 where "0"=').fetchall())
-# for i in cur.execute('select id,title from 行政法规 where "0"=""').fetchall():
-    with open("行政法规\\"+i,"r",encoding="utf-8-sig") as t:
-        codes = t.readlines()
-    law = [""]
-    for code in codes:
-        if code == "\n":
-            continue
-        if re.search("(^第.+?[条节章编][、.\s]*)|(^[0-9一二三四五六七八九十]+[、.\s]+)", code) is not None:
-            law.append(code)
-        else:
-            law[-1] = law[-1] + code
-    index = 0
-    law = law[1:]
-    for j in law:
-        if len(cur.execute("pragma table_info(行政法规)").fetchall()) - 1 == index:
-            cur.execute("alter table 行政法规 add column '{}' TEXT".format(str(index)))
-        cur.execute("update 行政法规 set '{}'='{}' where title='{}'".format(str(index),j,title))
-        index = index + 1
-    conn.commit()
-conn.close()
+    def sss(x):
+        w = ""
+        for i in chain.from_iterable(pinyin(x, style=Style.TONE3)):
+            w = w + i
+        return w
+
+    for i in os.listdir("laws"):
+        x = re.sub("[《》()（）]", "", i)
+        title = sss(x[0:-4])+x[0:-4]
+        cur.execute("insert into {} (title) values(?)".format(table),(title,))
+        with open("laws\\"+i,"r",encoding="utf-8-sig") as t:
+            codes = t.readlines()
+        law = [""]
+        for code in codes:
+            if code == "\n":
+                continue
+            if re.search("(^第.+?[条节章编][、.\s]*)|(^[0-9一二三四五六七八九十]+[、.\s]+)", code) is not None:
+                law.append(code)
+            else:
+                law[-1] = law[-1] + code
+        index = 0
+        law = law[1:]
+        for j in law:
+            if len(cur.execute("pragma table_info({})".format(table)).fetchall()) - 1 == index:
+                cur.execute("alter table {} add column '{}' TEXT".format(table,str(index)))
+            cur.execute("update {} set '{}'='{}' where title='{}'".format(table,str(index),j,title))
+            index = index + 1
+        conn.commit()
+        os.remove("laws\\"+i)
+    conn.close()
 # for i in cur.fetchall():
 #     file = re.sub("[\s\n<>]*","",i[0])+".docx"
 #     if os.path.exists(os.getcwd()+"\\234\\"+file):

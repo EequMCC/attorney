@@ -15,9 +15,9 @@ from itertools import chain
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThread, pyqtSignal, QMutex
 from PyQt5.QtGui import QCursor, QTextCursor, QFont, QPixmap, QColor
-from PyQt5.QtWidgets import QMenu, QApplication, QTreeWidgetItem, QFileDialog, QAbstractItemView
-from pypinyin import pinyin, Style
+from PyQt5.QtWidgets import QMenu, QApplication, QTreeWidgetItem, QFileDialog, QAbstractItemView, QInputDialog
 
+import convert_law
 import create_law
 from ui import *
 
@@ -33,10 +33,10 @@ class MyThread(QThread):
 
 
 class Attorney(MyWin):
-    sig = pyqtSignal(QTreeWidgetItem)
+    additem_sig = pyqtSignal(QTreeWidgetItem)
     show_law_sig = pyqtSignal(str)
-    add_law_sig = pyqtSignal(str)
     newlaw_sig = pyqtSignal()
+    addlaw_sig = pyqtSignal(str)
 
     def __init__(self):
         super(Attorney, self).__init__()
@@ -52,9 +52,9 @@ class Attorney(MyWin):
         self.current_item = [None,None,None,None,None]
         self.clipboard = QApplication.clipboard()
         self.lineedit_menu = QMenu(self)
-        self.sig.connect(self.main_tree.addTopLevelItem)
+        self.additem_sig.connect(self.main_tree.addTopLevelItem)
         self.show_law_sig.connect(self.show_law_txt.append)
-        self.add_law_sig.connect(self.add_law_ok)
+        self.addlaw_sig.connect(self.msg)
         self.add_law_thread = MyThread
         self.find_thread = MyThread([self.find_in_all])
         self.showlaw_thread = MyThread([self.append_law])
@@ -515,10 +515,10 @@ class Attorney(MyWin):
                     self.main_tree.takeTopLevelItem(self.main_tree.currentIndex().row())
                 return
             if self.sender().text() == u'加入常用':
-                current_law = self.search_law("select * from {} where title='{}'".format(law_table_title[0],law_table_title[1]))[0]
-                self.search_law("add",*current_law)
-                self.main_tree_items["法律"]["常用法律"].takeChild(self.main_tree.currentIndex().row())
-                self.main_tree_items["法律"]["常用法律"].addChild(0,self.main_tree.currentItem())
+                current_law = self.search_law("select title from {} where title='{}'".format(law_table_title[0],law_table_title[1]))[0]
+                self.search_law("add",current_law[0])
+                add = self.main_tree_items["法律"][law_table_title[0]].takeChild(self.main_tree.currentIndex().row())
+                self.main_tree_items["法律"]["常用法律"].addChild(add)
             else:
                 self.search_law("del",law_table_title[1])
                 self.main_tree_items["法律"]["常用法律"].removeChild(self.main_tree.currentItem())
@@ -528,11 +528,15 @@ class Attorney(MyWin):
 
         txt = ""
         other = self.main_tree_items["logs"]+self.main_tree_items["cases"]+self.main_tree_items["collects"]
+        lawitems_0 = [self.main_tree_items["法律"]["常用法律"].child(i) for i in range(self.main_tree_items["法律"]["常用法律"].childCount())]
+        lawitems_1 = [self.main_tree_items["法律"]["法律"].child(i) for i in range(self.main_tree_items["法律"]["法律"].childCount())]
+        lawitems_2 = [self.main_tree_items["法律"]["司法解释"].child(i) for i in range(self.main_tree_items["法律"]["司法解释"].childCount())]
+        lawitems_3 = [self.main_tree_items["法律"]["行政法规"].child(i) for i in range(self.main_tree_items["法律"]["行政法规"].childCount())]
         law_table_title = self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)
         icon = 'upload.png'
-        if law_table_title[0] in ["法律","司法解释","行政法规"]:
+        if self.main_tree.currentItem() in lawitems_1+lawitems_2+lawitems_3:
             txt = u'加入常用'
-        elif law_table_title[0] == "常用法律":
+        elif self.main_tree.currentItem() in lawitems_0:
             txt = u'移出常用'
         elif self.main_tree.currentItem() in other:
             txt = u"删除"
@@ -657,23 +661,27 @@ class Attorney(MyWin):
         if "select" in sql:
             return cur.execute(sql).fetchall()
         if "add" in sql:
-            index = 0
-            if (arg[0],) in cur.execute("select title from 常用法律").fetchall():
-                return
-            else:
-                cur.execute("insert into 常用法律 (title) values(?)", (arg[0],))
-            for j in arg[1:]:
-                if j is None:
-                    continue
-                if len(cur.execute("pragma table_info(常用法律)").fetchall()) - 1 == index:
-                    cur.execute("alter table 常用法律 add column '{}' TEXT".format(str(index)))
-                cur.execute("update 常用法律 set '{}'='{}' where title='{}'".format(str(index), j, arg[0]))
-                index = index + 1
+            cur.execute("insert or replace into 常用法律 (title) values(?)", (arg[0],))
         if "del" in sql:
-            print(arg)
             cur.execute("delete from 常用法律 where title='{}'".format(arg[0]))
         # if
         conn.commit()
+
+    def make_item(self,txt,parent=None,data=None,bold=False):
+        txt = re.sub("^[a-z0-9]*","",txt)
+        item = QTreeWidgetItem()
+        item.setText(0, txt)
+        item.setToolTip(0, txt)
+        item.setFirstColumnSpanned(True)
+        if data is not None:
+            item.setData(0, QtCore.Qt.UserRole, data)
+        if bold:
+            font = QFont()
+            font.setBold(True)
+            item.setFont(0, font)
+        if parent is not None:
+            parent.addChild(item)
+        return item
 
     def load_alllaws(self):
         table = ["常用法律","法律","司法解释","行政法规"]
@@ -682,30 +690,21 @@ class Attorney(MyWin):
         courtsay = self.search_law("select title from {} order by title asc".format(table[2]))
         governsay = self.search_law("select title from {} order by title asc".format(table[3]))
 
-        def make_item(txt,parent=None,data=None,bold=False):
-            txt = re.sub("^[a-z]*","",txt)
-            item = QTreeWidgetItem()
-            item.setText(0, txt)
-            item.setToolTip(0, txt)
-            item.setFirstColumnSpanned(True)
-            if data is not None:
-                item.setData(0, QtCore.Qt.UserRole, data)
-            if bold:
-                font = QFont()
-                font.setBold(True)
-                item.setFont(0, font)
-            if parent is not None:
-                parent.addChild(item)
-            return item
-
         self.main_tree_items["法律"] = {}
-        for tbl,kind in zip(table,[self.usual_law,laws,courtsay,governsay]):
-            kindparent = make_item(tbl,bold=True,data=tbl)
+        usual_law = self.make_item("常用法律", bold=True, data="常用法律")
+        usual_law.setIcon(0, QIcon("icons\\book.png"))
+        self.main_tree_items["法律"]["常用法律"] = usual_law
+        for tbl,kind in zip(table[1:],[laws,courtsay,governsay]):
+            kindparent = self.make_item(tbl, bold=True, data=tbl)
             kindparent.setIcon(0, QIcon("icons\\book.png"))
             self.main_tree_items["法律"][tbl] = kindparent
             for i in kind:
-                root = make_item(i[0],kindparent,[tbl,i[0]],True)
-                root.setForeground(0, QColor(100, 100, 100))
+                if (i[0],) in self.usual_law:
+                    root = self.make_item(i[0], usual_law, [tbl, i[0]], True)
+                    # root.setForeground(0, QColor(100, 100, 100))
+                else:
+                    root = self.make_item(i[0], kindparent, [tbl, i[0]], True)
+                root.setForeground(0, QColor(90, 90, 90))
                 self.law_items.append(root)
                 index = 0
                 parent = root
@@ -716,13 +715,13 @@ class Attorney(MyWin):
                     if re.search("(^第.+?编\s+)", j) is not None:
                         if re.search("(^第.+?[章编]\s+)|(^[一二三四五六七八九十]+[、.\s]+)",parent.text(0)) is not None:
                             parent = root
-                        parent = make_item(j.replace("\n", ""),parent,index)
+                        parent = self.make_item(j.replace("\n", ""), parent, index)
                     elif re.search("(^第.+?章\s+)|(^[一二三四五六七八九十]+[、.\s]+)", j) is not None:
                         if re.search("(^第.+?章\s+)|(^[一二三四五六七八九十]+[、.\s]+)",parent.text(0)) is not None:
                             parent = parent.parent()
-                        parent = make_item(j.replace("\n", ""),parent,index)
+                        parent = self.make_item(j.replace("\n", ""), parent, index)
                     elif re.search("^第.+?节\s+", j) is not None:
-                        make_item(j.replace("\n", ""),parent,index)
+                        self.make_item(j.replace("\n", ""), parent, index)
                     index = index + 1
 
     def load_allcases(self):
@@ -801,11 +800,7 @@ class Attorney(MyWin):
         self.main_tree.setRootIsDecorated(True)
         for i in range(self.main_tree.topLevelItemCount()):
             self.main_tree.takeTopLevelItem(0)
-        for u in self.usual_law:
-            if u not in [i.text(0) for i in [self.main_tree_items["法律"]["常用法律"].child(j) for j in range(self.main_tree_items["法律"]["常用法律"].childCount())]]:
-                self.usual_law.remove(u)
-        for i in self.main_tree_items["法律"].keys():
-            self.main_tree.addTopLevelItem(self.main_tree_items["法律"][i])
+        self.main_tree.addTopLevelItems(list(self.main_tree_items["法律"].values()))
 
     def show_case_all(self):
         for i in range(self.main_tree.topLevelItemCount()):
@@ -919,10 +914,12 @@ class Attorney(MyWin):
             next = next + 1
         self.mutex.unlock()
 
-    def add_law_ok(self,r):
-        if r != "":
-            self.msg("下列文件无法条：\n" + r)
+    def add_law(self,lawfiles,table):
+        law_txts = create_law.create_law(lawfiles)
+        convert_law.record_law(table)
         self.law_thread.start()
+        if law_txts != "":
+            self.addlaw_sig.emit("下列文件无法条：\n" + law_txts)
 
     def show_log_a(self):
         self.log_start.setDate(datetime.strptime(self.current_log[1], "%Y-%m-%d"))
@@ -991,7 +988,8 @@ class Attorney(MyWin):
             lawfiles = QFileDialog.getOpenFileNames(self, '导入法律', dir, '文档文件 (*.docx *.txt)')[0]
             if len(lawfiles) != 0:
                 self.current_item[1] = None
-                self.add_law_thread = MyThread([lambda :create_law.create_law(lawfiles,self.add_law_sig)])
+                table = QInputDialog.getItem(self,"类别","选择：",["法律","司法解释","行政法规","地方性法规","部门规章","规范性文件"],0,False)
+                self.add_law_thread = MyThread([lambda: self.add_law(lawfiles,table[0])])
                 self.add_law_thread.start()
 
         def add_collect():
@@ -1215,7 +1213,6 @@ class Attorney(MyWin):
         for i in these:
             if i == "":
                 these.remove(i)
-        print(scope)
         if "logs" in scope:
             for i in self.main_tree_items["logs"]:
                 n = 0
@@ -1225,7 +1222,7 @@ class Attorney(MyWin):
                             n = n + 1
                             break
                 if n == len(these):
-                    self.sig.emit(i)
+                    self.additem_sig.emit(i)
 
         if "cases" in scope:
             for i in self.main_tree_items["cases"]:
@@ -1236,12 +1233,15 @@ class Attorney(MyWin):
                 for txt in these:
                     for k in i.data(0,QtCore.Qt.UserRole)[1:]:
                         if i.data(0, QtCore.Qt.UserRole).index(k) >= 6:
-                            k = str(pickle.loads(k))
+                            for j in chain.from_iterable(pickle.loads(k)):
+                                if txt in j:
+                                    k = j
+                                    break
                         if txt in k:
                             n = n + 1
                             break
                 if n == len(these):
-                    self.sig.emit(i)
+                    self.additem_sig.emit(i)
 
         if "collects" in scope:
             for i in self.main_tree_items["collects"]:
@@ -1252,7 +1252,7 @@ class Attorney(MyWin):
                             n = n + 1
                             break
                 if n == len(these):
-                    self.sig.emit(i)
+                    self.additem_sig.emit(i)
 
         if True:#"laws"  in scope:
             self.mutex.unlock()
@@ -1298,7 +1298,7 @@ class Attorney(MyWin):
                         child.setData(0,QtCore.Qt.UserRole,index)
                     index = index + 1
                 if have == 1:
-                    self.sig.emit(self.find_law_items[i[1]])
+                    self.additem_sig.emit(self.find_law_items[i[1]])
         self.mutex.unlock()
 
 

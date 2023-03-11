@@ -15,6 +15,7 @@ QLineEdit {
     color:black;
     background-color:transparent;
     font-size:16px;
+    height:24px;
     border-top:0px solid;
     border-bottom:1px solid;
     border-left:0px solid;
@@ -48,6 +49,7 @@ QComboBox {
     color:black;
     background-color:transparent;
     font-size:16px;
+    height:24px;
     font-weight: bold;
     border-top:0px solid;
     border-bottom:1px solid;

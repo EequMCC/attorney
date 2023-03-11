@@ -8,7 +8,7 @@ from docx.oxml.ns import qn
 from docx.shared import Pt
 
 
-def create_law(files,sig):
+def create_law(files):
     law_txts = ""
     for i in files:
         i = i.replace("/","\\")
@@ -18,16 +18,13 @@ def create_law(files,sig):
                 codes = t.readlines()
         else:
             try:
-                docs = docx.Document("D:\\Desktop\\attorney\\345\\司法解释\\"+i)
+                docs = docx.Document(i)
                 codes = [i.text for i in docs.paragraphs]
-            except Exception as e:
-                print(e)
+            except:
                 continue
         ok = kk = 0
         zjp = []
         txt = "laws\\"+f_e[0].split("\\")[-1].replace("中华人民共和国","").replace("人民代表大会","人大").replace("常务委员会","常委")+".txt"
-        if os.path.exists(txt):
-            os.remove(txt)
         law_txt = []
         with open(txt,"a",encoding="utf-8") as tf:
             for j in codes:
@@ -50,10 +47,7 @@ def create_law(files,sig):
         if len(law_txt) == 0:
             os.remove(txt)
             law_txts = law_txts + f_e[0]+"\n"
-        else:
-            os.remove("D:\\Desktop\\attorney\\345\\司法解释\\"+i)
-
-    # sig.emit(law_txts)
+    return law_txts
 
 # create_law(os.listdir("D:\\Desktop\\attorney\\345\\司法解释"),"")
 
