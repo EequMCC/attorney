@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import pickle
@@ -513,22 +514,18 @@ class Attorney(MyWin):
                             break
                     self.main_tree.takeTopLevelItem(self.main_tree.currentIndex().row())
                 return
-            self.main_tree.takeTopLevelItem(self.main_tree.currentIndex().row())
             if self.sender().text() == u'加入常用':
-                index = 0
-                current_law = self.search_law("select * from {} where title={}".format(law_table_title[0],law_table_title[1]))[0]
-                self.search_law("add",current_law)
-                self.main_tree_items["法律"][name].setForeground(0, QColor(0, 0, 0))
+                current_law = self.search_law("select * from {} where title='{}'".format(law_table_title[0],law_table_title[1]))[0]
+                self.search_law("add",*current_law)
+                self.main_tree_items["法律"]["常用法律"].takeChild(self.main_tree.currentIndex().row())
+                self.main_tree_items["法律"]["常用法律"].addChild(0,self.main_tree.currentItem())
             else:
-                self.usual_law.remove(name)
-                index = len(self.usual_law)
-                self.main_tree_items["法律"][name].setForeground(0, QColor(100, 100, 100))
-            self.main_tree.insertTopLevelItem(index, self.main_tree_items["法律"][name])
+                self.search_law("del",law_table_title[1])
+                self.main_tree_items["法律"]["常用法律"].removeChild(self.main_tree.currentItem())
 
         if self.main_tree.currentItem() is None:
             return
 
-        name = self.main_tree.currentItem().text(0)
         txt = ""
         other = self.main_tree_items["logs"]+self.main_tree_items["cases"]+self.main_tree_items["collects"]
         law_table_title = self.main_tree.currentItem().data(0,QtCore.Qt.UserRole)
@@ -661,12 +658,20 @@ class Attorney(MyWin):
             return cur.execute(sql).fetchall()
         if "add" in sql:
             index = 0
-            # id =
-            for j in arg[0]:
-                if len(cur.execute("pragma table_info({})".format(arg[1])).fetchall()) - 2 == index:
-                    cur.execute("alter table {} add column '{}' TEXT".format(arg[1],str(index)))
-                cur.execute("update {} set '{}'='{}' where id={}".format(arg[1],str(index), j, id))
+            if (arg[0],) in cur.execute("select title from 常用法律").fetchall():
+                return
+            else:
+                cur.execute("insert into 常用法律 (title) values(?)", (arg[0],))
+            for j in arg[1:]:
+                if j is None:
+                    continue
+                if len(cur.execute("pragma table_info(常用法律)").fetchall()) - 1 == index:
+                    cur.execute("alter table 常用法律 add column '{}' TEXT".format(str(index)))
+                cur.execute("update 常用法律 set '{}'='{}' where title='{}'".format(str(index), j, arg[0]))
                 index = index + 1
+        if "del" in sql:
+            print(arg)
+            cur.execute("delete from 常用法律 where title='{}'".format(arg[0]))
         # if
         conn.commit()
 
@@ -695,7 +700,7 @@ class Attorney(MyWin):
 
         self.main_tree_items["法律"] = {}
         for tbl,kind in zip(table,[self.usual_law,laws,courtsay,governsay]):
-            kindparent = make_item(tbl,bold=True)
+            kindparent = make_item(tbl,bold=True,data=tbl)
             kindparent.setIcon(0, QIcon("icons\\book.png"))
             self.main_tree_items["法律"][tbl] = kindparent
             for i in kind:
