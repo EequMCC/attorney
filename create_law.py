@@ -26,7 +26,7 @@ def convert_to_bytes(table,laws):
         codes = laws[i]
         law = [""]
         for code in codes:
-            if re.search("(^第.+?[条节章编][、.\s]*?)|(^[0-9一二三四五六七八九十]+[、.\s]*?)", code) is not None:
+            if re.search("(^第.+?[条节章编][、.\s]*?)|(^[0-9一二三四五六七八九十]+[、.\s]+?)", code) is not None:
                 law.append(code)
             else:
                 law[-1] = law[-1] + code
@@ -90,21 +90,21 @@ def record_law(table,files):
             no_law = no_law + f_e[0]+"\n"
 
     if no_law != "":
-        with open("nolaw","wb") as t:
+        with open("nolaw.bt","wb") as t:
             t.write(pickle.dumps(no_law))
     convert_to_bytes(table, laws)
 
-    os.remove("newlaw")
+    os.remove("newlaw.bt")
 
 n = 0
 while True:
     if n == 60:
         break
-    if not os.path.exists("newlaw"):
+    if not os.path.exists("newlaw.bt"):
         time.sleep(1)
         n = n + 1
         continue
-    with open("newlaw","rb") as t:
+    with open("newlaw.bt","rb") as t:
         files = pickle.loads(t.read())
     for i in files.keys():
         record_law(i,files[i])

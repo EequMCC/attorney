@@ -1,5 +1,3 @@
-import copy
-import json
 import os
 import pickle
 import re
@@ -17,7 +15,6 @@ from PyQt5.QtCore import QThread, pyqtSignal, QMutex
 from PyQt5.QtGui import QCursor, QTextCursor, QFont, QPixmap, QColor
 from PyQt5.QtWidgets import QMenu, QApplication, QTreeWidgetItem, QFileDialog, QAbstractItemView, QInputDialog
 
-import output_docx
 from ui import *
 
 class MyThread(QThread):
@@ -185,8 +182,8 @@ class Attorney(MyWin):
             self.me["words"] = self.setting_layout.itemAt(3, 1).widget().text()
             w = 1
         if w == 1 and result != 3:
-            with open("profile", "w", encoding="utf-8") as t:
-                t.write(json.dumps(self.me,ensure_ascii=False))
+            with open("profile.bt", "wb") as t:
+                t.write(pickle.dumps(self.me))
             self.set_me()
         self.setting_win.close()
 
@@ -197,24 +194,28 @@ class Attorney(MyWin):
         self.label.setText(self.me["words"])
 
     def output_paper(self):
-        def get_alllog():
-            fetchall = self.record_database("select * from logs where caseid like '"+self.current_case["id"]+"'")
-            output_docx.output_paper(self.me["casedir"]+"\\"+self.current_case["案件名"],fetchall,'工作日志')
 
-        def get_paper(what):
-            output_docx.output_paper(self.me["casedir"] + "\\" + self.current_case["案件名"], self.current_case, what)
+        def get_paper():
+            what = self.sender().text()
+            if "日志" in what:
+                data = self.record_database("select * from logs where caseid like '"+self.current_case["id"]+"'")
+            else:
+                data = self.current_case
+            with open("data_out.bt","wb") as t:
+                t.write(pickle.dumps([self.me["casedir"] + "\\" + self.current_case["案件名"],data,what]))
+            os.system("python output_docx.py")
 
         groupBox_menu = QMenu(self)
-        actionA = QAction(QIcon('icons\\paper.png'), u'生成起诉状', self)
-        actionA.triggered.connect(lambda :get_paper("民事起诉状"))
+        actionA = QAction(QIcon('icons\\paper.png'), u'民事起诉状', self)
+        actionA.triggered.connect(get_paper)
         groupBox_menu.addAction(actionA)
 
-        actionB = QAction(QIcon('icons\\defence.png'), u'生成答辩状', self)
-        actionB.triggered.connect(lambda :get_paper("答辩状"))
+        actionB = QAction(QIcon('icons\\defence.png'), u'答辩状', self)
+        actionB.triggered.connect(get_paper)
         groupBox_menu.addAction(actionB)
 
-        actionE = QAction(QIcon('icons\\tasks.png'), u'导出日志', self)
-        actionE.triggered.connect(get_alllog)
+        actionE = QAction(QIcon('icons\\tasks.png'), u'工作日志', self)
+        actionE.triggered.connect(get_paper)
         groupBox_menu.addAction(actionE)
         groupBox_menu.popup(QCursor.pos())
 
@@ -253,9 +254,9 @@ class Attorney(MyWin):
         self.setting_layout.itemAt(4, 1).layout().itemAt(2).widget().clicked.connect(lambda :self.setting(2))
         self.setting_layout.itemAt(4, 1).layout().itemAt(3).widget().clicked.connect(lambda :self.setting(3))
 
-        if os.path.exists("profile"):
-            with open("profile","r",encoding="utf-8") as t:
-                self.me = json.loads(t.read())
+        if os.path.exists("profile.bt"):
+            with open("profile.bt","rb") as t:
+                self.me = pickle.loads(t.read())
         else:
             self.setting_show()
         self.set_me()
@@ -292,20 +293,19 @@ class Attorney(MyWin):
         self.record.clicked.connect(self.write_log_case_collect)
         self.collect_content.textChanged.connect(self.write_thread.start)
 
-        self.more_inf_txt.textChanged.connect(self.cach_case_inf)
-        self.reson_txt.textChanged.connect(self.cach_case_inf)
-
-        self.law_txt.textChanged.connect(self.cach_case_inf)
         self.case_end_ok.stateChanged.connect(lambda :self.case_end.setEnabled(not self.case_end.isEnabled()))
 
         self.log_case.currentTextChanged.connect(self.fill_case_name)
         self.log_end_ok.stateChanged.connect(lambda :self.log_end.setEnabled(not self.log_end.isEnabled()))
 
-        who = [self.show_law_txt, self.reson_txt, self.law_txt,self.collect_content, self.search,self.log_what]
+        who = [self.show_law_txt, self.search, self.log_name, self.collect_name, self.log_case, self.reson_txt,
+               self.law_txt, self.more_inf_txt, self.collect_content, self.log_what]
         for i in who:
             i.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             i.customContextMenuRequested.connect(self.txt_menu)
-            if who.index(i) >= 5:
+            if 5 <= who.index(i) < 8:
+                i.textChanged.connect(self.cach_case_inf)
+            if 8 <= who.index(i):
                 i.textChanged.connect(self.write_thread.start)
         self.log_thread.start()
         self.first_thread.start()
@@ -313,7 +313,7 @@ class Attorney(MyWin):
         self.newlaw_tree.setVisible(False)
         self.newlaw_thread.start()
 
-    def record_database(self,word,arg=""):
+    def record_database(self,word,*arg):
         if not os.path.exists(self.me["casedir"]):
             return 0
         conn = sqlite3.connect(self.me["casedir"]+"\\database.db")
@@ -359,8 +359,7 @@ class Attorney(MyWin):
         self.mutex.lock()
         what = self.stack.currentIndex()
         if what == 0:
-            key = self.get_case()
-            if key == 0:
+            if self.sender() and self.get_case() == 0:
                 self.mutex.unlock()
                 return
             if self.case_end.isEnabled():
@@ -368,6 +367,8 @@ class Attorney(MyWin):
             else:
                 self.current_case["结案日期"] = ""
             many = 14
+            key = ["id","案件名", "事实理由", "法律法规", "备注", "结案日期","原告", "被告", "第三人", "案由", "诉讼请求",
+                   "管辖法院", "法官", "诉讼阶段"]
             data = [self.current_case[i] for i in key[0:6]]+[pickle.dumps(self.current_case[j]) for j in key[6:]]
         if what == 1:
             self.current_log = [self.current_log[0],self.log_start.date().toString("yyyy-MM-dd"),self.current_case["id"] if self.current_case["id"] != "" else self.log_case.currentText(), self.log_name.text(), self.log_what.toPlainText(),
@@ -378,21 +379,29 @@ class Attorney(MyWin):
             self.current_collect = (self.current_collect[0],str(time.strftime("%Y-%m-%d %H%M%S")),self.collect_name.text(), self.collect_content.toPlainText())
             many = 4
             data = self.current_collect
-        cachtxt = ["case.json","log.json","collect.json"][what]
+        cachtxt = ["case.bt","log.bt","collect.bt"][what]
+        table = ["cases","logs","collects"][what]
         if not self.sender():
-            with open(cachtxt,"w",encoding="utf-8") as l:
-                l.write(json.dumps(data,ensure_ascii=False))
-            self.mutex.unlock()
+            with open(cachtxt, "wb") as t:
+                t.write(pickle.dumps(data))
+            id = self.record_database("select id from {} where id='{}'".format(table, data[0]))
+            if id != 0 and len(id) > 0:
+                self.record_database("insert into editting values(?,?)", data[0], self.me["name"])
         else:
-            table = ["cases","logs","collects"][what]
-            result = self.record_database("insert or replace into "+table+" values (?"+",?"*(many-1)+")",data)
-            if result == 0:
-                self.msg("案件库已断开")
-                self.mutex.unlock()
-                return
+            who_edit = self.record_database("select who from editting where id='{}'".format(data[0]))
+            if who_edit == 0:
+                msg = "案件库已断开"
+            elif len(who_edit) == 0 or who_edit[0][0] == self.me["name"]:
+                self.record_database("insert or replace into "+table+" values (?"+",?"*(many-1)+")",*data)
+                self.search.actions()[0].setIcon(QIcon("icons\\add_ok.png"))
+                msg = ""
+            else:
+                msg = who_edit[0][0] + " 正在编辑该条，保存失败！"
+            if msg != "":
+                self.msg(msg)
             if os.path.exists(cachtxt):
                 os.remove(cachtxt)
-            self.search.actions()[0].setIcon(QIcon("icons\\add_ok.png"))
+        self.mutex.unlock()
             # txt = [re.sub("\s[0-9]{6}\s", " ", data[1]),data[1]+ " " + data[3] + "▶" + re.sub("^[0-9\s-]*?","",self.current_case["案件名"] if self.current_case["案件名"] != "" else self.log_case.currentText()),
             # data[1][0:10] + " " + data[2]][what]
             # root = None
@@ -421,7 +430,7 @@ class Attorney(MyWin):
             # self.add_show = "main_tree"
             # self.main_tree.setCurrentItem(root)
             # self.current_item[index] = root
-            self.mutex.unlock()
+
 
     def get_case(self):
         client = 0
@@ -435,13 +444,20 @@ class Attorney(MyWin):
         if client == 0:
             self.msg("请右键点击当事人设置委托人")
             return 0
+        name = self.casename()
         if self.current_case["案件名"] == "":
-            self.cach_case_inf()
-        elif re.sub("\s[0-9]{6}\s"," ",self.current_case["案件名"]) != re.sub("\s[0-9]{6}\s"," ",self.casename()):
-            self.cach_case_inf("rename")
+            self.current_case["id"] = str(self.case_start.date().toString("yyyyMMdd")) + str(time.strftime("%H%M%S"))
+            if os.path.exists(self.me["casedir"] + "\\" + name):
+                os.mkdir(self.me["casedir"] + "\\" + name)
+        elif re.sub("\s[0-9]{6}\s", " ", self.current_case["案件名"]) != re.sub("\s[0-9]{6}\s", " ",
+                                                                                self.casename()):
+            if os.path.exists(self.me["casedir"] + "\\" + self.current_case["案件名"]):
+                shutil.move(self.me["casedir"] + "\\" + self.current_case["案件名"], self.me["casedir"] + "\\" + name)
+            else:
+                os.mkdir(self.me["casedir"] + "\\" + name)
+        self.current_case["案件名"] = name
         self.setWindowTitle(self.current_case["案件名"])
-        return ["id","案件名", "事实理由", "法律法规", "备注", "结案日期","原告", "被告", "第三人", "案由", "诉讼请求",
-                   "管辖法院", "法官", "诉讼阶段"]
+        return 1
 
     def casename(self):
         yuan = self.current_case["原告"][0][0]
@@ -460,7 +476,7 @@ class Attorney(MyWin):
                 case[i] = j
         return case
 
-    def cach_case_inf(self,arg=""):
+    def cach_case_inf(self):
         who = self.sender().objectName()
         if who == "事实理由":
             self.current_case["事实理由"] = self.reson_txt.toPlainText()
@@ -485,19 +501,7 @@ class Attorney(MyWin):
                 icon = txt = ""
             parent[self.tree_case.currentIndex().row()][2] = txt
             self.tree_case.currentItem().setIcon(1, QIcon(icon))
-        if who == "记录完成":
-            name = self.casename()
-            if arg == "":
-                self.current_case["id"] = str(self.case_start.date().toString("yyyyMMdd"))+str(time.strftime("%H%M%S"))
-                os.mkdir(self.me["casedir"]+"\\"+name)
-            else:
-                if os.path.exists(self.me["casedir"]+"\\"+self.current_case["案件名"]):
-                    shutil.move(self.me["casedir"]+"\\"+self.current_case["案件名"],self.me["casedir"]+"\\"+name)
-                else:
-                    os.mkdir(self.me["casedir"]+"\\" + name)
-            self.current_case["案件名"] = name
-        with open("case.json", "w", encoding="utf-8") as tt:
-            tt.write(json.dumps(self.current_case,ensure_ascii=False))
+        self.write_thread.start()
 
     def tree_menu(self):
         def up_law():
@@ -573,14 +577,14 @@ class Attorney(MyWin):
             sender.copy()
             if self.clipboard.text() == "":
                 return
-            if os.path.exists("collect.json"):
-                with open("collect.json", "r", encoding="utf-8") as t:
-                    self.current_collect = json.loads(t.read())
+            if os.path.exists("collect.bt"):
+                with open("collect.bt", "rb") as t:
+                    self.current_collect = pickle.loads(t.read())
             else:
                 self.current_collect = [str(time.strftime("%Y%m%d%H%M%S")), "", "", ""]
             self.current_collect[-1] = self.current_collect[-1] + self.clipboard.text()+"\n"
-            with open("collect.json", "w", encoding="utf-8") as t:
-                t.write(json.dumps(self.current_collect,ensure_ascii=False))
+            with open("collect.bt", "wb") as t:
+                t.write(pickle.dumps(self.current_collect))
 
         if selectedText != "":
             actionB = QAction(QIcon('icons\\star.png'), u'收藏', self)
@@ -636,6 +640,10 @@ class Attorney(MyWin):
         if fetchall == 0:
             self.mutex.unlock()
             return
+        self.record_database('''create table if not exists editting (
+                                    id TEXT PRIMARY KEY,
+                                    who TEXT
+                                    )''')
         fetchall = self.record_database("select * from logs order by id desc")
         self.main_tree_items["logs"] = []
         for i in fetchall:
@@ -644,7 +652,7 @@ class Attorney(MyWin):
                 name = i[2]
             else:
                 name = re.sub("^[0-9\s-]*","",casename[0][0])
-            task = i[1] + " " + i[3] + "▶" + name
+            task = i[1] + " " + i[3] + "●" + name
             root = QTreeWidgetItem()
             root.setText(0, task)
             root.setFirstColumnSpanned(True)
@@ -938,12 +946,12 @@ class Attorney(MyWin):
     def add_law(self):
         while True:
             time.sleep(1)
-            if os.path.exists("nolaw"):
-                with open("nolaw", "rb") as t:
+            if os.path.exists("nolaw.bt"):
+                with open("nolaw.bt", "rb") as t:
                     law_txts = pickle.loads(t.read())
                 self.addlaw_sig.emit("下列文件无法条：\n" + law_txts)
-                os.remove("nolaw")
-            if not os.path.exists("newlaw"):
+                os.remove("nolaw.bt")
+            if not os.path.exists("newlaw.bt"):
                 self.law_thread.start()
                 break
 
@@ -991,17 +999,17 @@ class Attorney(MyWin):
                 self.which_founction(self.search.actions()[0].objectName())
 
         def add_log():
-            if os.path.exists("log.json"):
-                with open("log.json","r",encoding="utf-8") as t:
-                    self.current_log = json.loads(t.read())
+            if os.path.exists("log.bt"):
+                with open("log.bt","rb") as t:
+                    self.current_log = pickle.loads(t.read())
             else:
                 self.current_log = [str(time.strftime("%Y%m%d%H%M%S")),str(time.strftime("%Y-%m-%d")),self.current_case["id"],"","",""]
             self.show_log_a()
 
         def add_case():
-            if os.path.exists("case.json"):
-                with open("case.json", "r", encoding="utf-8") as txt:
-                    self.current_case = json.loads(txt.read())
+            if os.path.exists("case.bt"):
+                with open("case.bt", "rb") as txt:
+                    self.current_case = self.product_currentcase(pickle.loads(txt.read()))
             else:
                 self.current_case = self.product_currentcase()
             self.setWindowTitle("律师助手" if self.current_case["案件名"] == "" else self.current_case["案件名"])
@@ -1028,19 +1036,19 @@ class Attorney(MyWin):
                 self.progress.setValue(0)
                 self.progress.setVisible(True)
                 newlaw = {table: lawfiles}
-                with open("newlaw", "wb") as t:
+                with open("newlaw.bt", "wb") as t:
                     t.write(pickle.dumps(newlaw))
                 try:
-                    os.system("create_law.exe")
+                    os.system("python create_law.py")
                 except:
                     return
                 self.add_law_thread = MyThread([self.add_law])
                 self.add_law_thread.start()
 
         def add_collect():
-            if os.path.exists("collect.json"):
-                with open("collect.json","r",encoding="utf-8") as t:
-                    self.current_collect = json.loads(t.read())
+            if os.path.exists("collect.bt"):
+                with open("collect.bt","rb") as t:
+                    self.current_collect = pickle.loads(t.read())
             else:
                 self.current_collect = (str(time.strftime("%Y%m%d%H%M%S")),"","","")
             self.show_collect_a()

@@ -1,18 +1,25 @@
 import os.path
 import pickle
-import re
-import sqlite3
 import time
-from itertools import chain
 
 import docx
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.shared import Pt
-from pypinyin import pinyin, Style
 
+def output_paper():
+    while True:
+        if os.path.exists("data_out.bt"):
+            with open("data_out.bt","rb") as t:
+                data = pickle.loads(t.read())
+            os.remove("data_out.bt")
+            break
+        else:
+            time.sleep(1)
+    dir = data[0]
+    conten = data[1]
+    what = data[2]
 
-def output_paper(dir,conten,what):
     docs = docx.Document()
     p = docs.add_paragraph()
     p.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -84,11 +91,10 @@ def output_paper(dir,conten,what):
 
     elif what == "工作日志":
         for i in conten:
-            docs.add_paragraph().add_run(i[1].replace("-",".") +"-"+i[7].replace("-","."))
+            docs.add_paragraph().add_run(i[1].replace("-",".") +"-"+i[-1].replace("-","."))
             docs.add_paragraph().add_run(i[3])
-            for j in range(4,7):
-                if i[j] != "":
-                    docs.add_paragraph().add_run(i[j])
+            if i[4] != "":
+                docs.add_paragraph().add_run(i[4])
             docs.add_paragraph()
 
         for i in docs.paragraphs[1:]:
@@ -155,4 +161,6 @@ def output_paper(dir,conten,what):
         os.startfile(dir + "\\" + str(time.strftime("%Y%m%d%H%M%S")) + "-"+what+".docx")
     except:
         pass
+
+output_paper()
 
