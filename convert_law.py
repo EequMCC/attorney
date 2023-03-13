@@ -6,11 +6,11 @@ from itertools import chain
 from pypinyin import pinyin, Style
 
 
-
 def record_law(table):
     conn = sqlite3.connect("LawData.db")
     cur = conn.cursor()
-
+    cur.execute('''create table if not exists {} (title TEXT PRIMARY KEY)'''.format(table))
+    conn.commit()
     def sss(x):
         w = ""
         for i in chain.from_iterable(pinyin(x, style=Style.TONE3)):
@@ -41,6 +41,7 @@ def record_law(table):
         conn.commit()
         os.remove("laws\\"+i)
     conn.close()
+record_law("常用法律")
 # for i in cur.fetchall():
 #     file = re.sub("[\s\n<>]*","",i[0])+".docx"
 #     if os.path.exists(os.getcwd()+"\\234\\"+file):

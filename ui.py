@@ -3,7 +3,7 @@ from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QGridLayout, QPushButton, QLineEdit, \
     QLabel, QDateEdit, QPlainTextEdit, QComboBox, QCheckBox, QAction, QTreeWidget, QTextEdit, \
-    QToolButton, QStackedLayout, QGraphicsDropShadowEffect, QFormLayout, QDialog, QMessageBox, QSplitter
+    QToolButton, QStackedLayout, QGraphicsDropShadowEffect, QFormLayout, QDialog, QMessageBox, QSplitter, QProgressBar
 
 
 # class MyTreeWidget(QTreeWidget):
@@ -39,6 +39,7 @@ class MyWin(QWidget):
         self.user_name = QLabel()
         self.task_button = QPushButton("日志")
         self.law_button = QPushButton("法律")
+        self.progress = QProgressBar(self.law_button)
         self.allcase_button = QPushButton("案件")
         self.collect_button = QPushButton("收藏")
         self.files_button = QPushButton("文件")
@@ -47,6 +48,9 @@ class MyWin(QWidget):
 
         self.setting_win = QDialog()
         self.setting_layout = QFormLayout(self.setting_win)
+
+        #splitter
+        self.splitter2 = QSplitter(QtCore.Qt.Horizontal)
 
         # show win
         self.show_win = QWidget()
@@ -58,7 +62,8 @@ class MyWin(QWidget):
         self.many = QLabel()
 
         #stacklayout
-        self.stack = QStackedLayout()
+        self.stack_win = QWidget()
+        self.stack = QStackedLayout(self.stack_win)
         self.label = QLabel()
         self.show_law_txt = QTextEdit()
 
@@ -126,8 +131,9 @@ class MyWin(QWidget):
     def setup_Ui(self):
         self.resize(900,720)
         self.main_layout.addLayout(self.vbox1)
-        self.main_layout.addWidget(self.show_win)
-        self.main_layout.addLayout(self.stack,1)
+        self.main_layout.addWidget(self.splitter2,1)
+        self.splitter2.addWidget(self.show_win)
+        self.splitter2.addWidget(self.stack_win)
 
         self.setting_win.setWindowTitle("设置")
         self.setting_win.setWindowIcon(QIcon("icons\\lawyer.png"))
@@ -192,9 +198,16 @@ class MyWin(QWidget):
         self.newlaw_label.setFixedSize(12,12)
         self.newlaw_label.move(28,0)
 
+        self.progress.setFixedSize(75,6)
+        self.progress.setTextVisible(False)
+        self.progress.move(5,34)
         self.newlaw_button.setStyleSheet("background-color:transparent;")
         self.newlaw_label.setStyleSheet("background-color:red;border-radius:6px;")
         self.newlaw_label.setVisible(False)
+
+        #splitter2
+        self.splitter2.setContentsMargins(0,0,0,0)
+
         # show_win
         self.vbox2.setContentsMargins(0, 0, 0, 0)
         self.vbox2.addWidget(self.search)
@@ -205,18 +218,18 @@ class MyWin(QWidget):
                 check.setCheckState(QtCore.Qt.Checked)
             self.search_which.addWidget(check)
         self.search_which.addStretch(1)
-        last_page = QToolButton()
-        last_page.setIcon(QIcon("icons\\last.png"))
-        last_page.setIconSize(QSize(10,10))
-        last_page.setObjectName("上一页")
-        last_page.setStyleSheet("background-color:transparent;")
-        next_page = QToolButton()
-        next_page.setIcon(QIcon("icons\\next.png"))
-        next_page.setIconSize(QSize(10,10))
-        next_page.setObjectName("下一页")
-        next_page.setStyleSheet("background-color:transparent;")
-        self.search_which.addWidget(last_page)
-        self.search_which.addWidget(next_page)
+        # last_page = QToolButton()
+        # last_page.setIcon(QIcon("icons\\last.png"))
+        # last_page.setIconSize(QSize(10,10))
+        # last_page.setObjectName("上一页")
+        # last_page.setStyleSheet("background-color:transparent;")
+        # next_page = QToolButton()
+        # next_page.setIcon(QIcon("icons\\next.png"))
+        # next_page.setIconSize(QSize(10,10))
+        # next_page.setObjectName("下一页")
+        # next_page.setStyleSheet("background-color:transparent;")
+        # self.search_which.addWidget(last_page)
+        # self.search_which.addWidget(next_page)
         self.vbox2.addLayout(self.search_which)
         self.vbox2.addWidget(self.main_tree, 1)
         self.vbox2.addWidget(self.many)
@@ -229,7 +242,7 @@ class MyWin(QWidget):
         action = QAction(self)
         action.setIcon(QIcon("icons\\search.png"))
         self.search.addAction(action,QLineEdit.TrailingPosition)
-        self.search.setPlaceholderText("任意关键字（多个用空格分开）")
+        self.search.setPlaceholderText("任意关键字（空格分开）")
         self.search.setObjectName("搜索")
 
         self.main_tree.setHeaderHidden(True)
@@ -313,6 +326,7 @@ class MyWin(QWidget):
 
         # self.gbox.addWidget(,0,4)
         self.gbox.addWidget(self.tree_case,1,0,6,2)#共9行
+        self.splitter1.setContentsMargins(0,0,0,0)
         self.splitter1.addWidget(self.reson_txt)
         self.splitter1.addWidget(self.law_txt)
         self.gbox.addWidget(self.splitter1,1,2,6,2)

@@ -56,6 +56,10 @@ QComboBox {
     border-left:0px solid;
     border-right:0px solid;
 }
+QComboBox QAbstractItemView::item
+{
+	height:20px;
+}
 QLabel {
     color:gray;
     font-size:16px;
