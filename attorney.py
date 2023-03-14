@@ -168,7 +168,7 @@ class Attorney(MyWin):
     def setting(self,result):
         w = 0
         if (result == 3 and not os.path.exists("profile")) or result == 1:
-                self.me["name"] = "用户1"
+                self.me["name"] = str(time.strftime("%Y%m%d%H%M%S"))
                 self.me["img"] = "icons\\userdefault.png"
                 self.me["casedir"] = "案件库"
                 self.me["words"] = "心诚所至，金石为开"
@@ -402,7 +402,6 @@ class Attorney(MyWin):
             if os.path.exists(cachtxt):
                 os.remove(cachtxt)
         self.mutex.unlock()
-
 
     def get_case(self):
         client = 0
