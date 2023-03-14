@@ -293,20 +293,19 @@ class Attorney(MyWin):
         self.record.clicked.connect(self.write_log_case_collect)
         self.collect_content.textChanged.connect(self.write_thread.start)
 
-        self.more_inf_txt.textChanged.connect(self.cach_case_inf)
-        self.reson_txt.textChanged.connect(self.cach_case_inf)
-
-        self.law_txt.textChanged.connect(self.cach_case_inf)
         self.case_end_ok.stateChanged.connect(lambda :self.case_end.setEnabled(not self.case_end.isEnabled()))
 
         self.log_case.currentTextChanged.connect(self.fill_case_name)
         self.log_end_ok.stateChanged.connect(lambda :self.log_end.setEnabled(not self.log_end.isEnabled()))
 
-        who = [self.show_law_txt, self.reson_txt, self.law_txt,self.collect_content, self.search,self.log_what]
+        who = [self.show_law_txt, self.search, self.log_name, self.collect_name, self.log_case, self.reson_txt,
+               self.law_txt, self.more_inf_txt, self.collect_content, self.log_what]
         for i in who:
             i.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             i.customContextMenuRequested.connect(self.txt_menu)
-            if who.index(i) >= 5:
+            if 5 <= who.index(i) < 8:
+                i.textChanged.connect(self.cach_case_inf)
+            if 8 <= who.index(i):
                 i.textChanged.connect(self.write_thread.start)
         self.log_thread.start()
         self.first_thread.start()
@@ -314,7 +313,7 @@ class Attorney(MyWin):
         self.newlaw_tree.setVisible(False)
         self.newlaw_thread.start()
 
-    def record_database(self,word,arg=""):
+    def record_database(self,word,*arg):
         if not os.path.exists(self.me["casedir"]):
             return 0
         conn = sqlite3.connect(self.me["casedir"]+"\\database.db")
@@ -360,8 +359,7 @@ class Attorney(MyWin):
         self.mutex.lock()
         what = self.stack.currentIndex()
         if what == 0:
-            key = self.get_case()
-            if key == 0:
+            if self.sender() and self.get_case() == 0:
                 self.mutex.unlock()
                 return
             if self.case_end.isEnabled():
@@ -369,6 +367,8 @@ class Attorney(MyWin):
             else:
                 self.current_case["结案日期"] = ""
             many = 14
+            key = ["id","案件名", "事实理由", "法律法规", "备注", "结案日期","原告", "被告", "第三人", "案由", "诉讼请求",
+                   "管辖法院", "法官", "诉讼阶段"]
             data = [self.current_case[i] for i in key[0:6]]+[pickle.dumps(self.current_case[j]) for j in key[6:]]
         if what == 1:
             self.current_log = [self.current_log[0],self.log_start.date().toString("yyyy-MM-dd"),self.current_case["id"] if self.current_case["id"] != "" else self.log_case.currentText(), self.log_name.text(), self.log_what.toPlainText(),
@@ -380,49 +380,29 @@ class Attorney(MyWin):
             many = 4
             data = self.current_collect
         cachtxt = ["case.bt","log.bt","collect.bt"][what]
+        table = ["cases","logs","collects"][what]
         if not self.sender():
-            with open(cachtxt,"wb") as l:
-                l.write(pickle.dumps(data))
-            self.mutex.unlock()
+            with open(cachtxt, "wb") as t:
+                t.write(pickle.dumps(data))
+            id = self.record_database("select id from {} where id='{}'".format(table, data[0]))
+            if id != 0 and len(id) > 0:
+                self.record_database("insert into editting values(?,?)", data[0], self.me["name"])
         else:
-            table = ["cases","logs","collects"][what]
-            result = self.record_database("insert or replace into "+table+" values (?"+",?"*(many-1)+")",data)
-            if result == 0:
-                self.msg("案件库已断开")
-                self.mutex.unlock()
-                return
+            who_edit = self.record_database("select who from editting where id='{}'".format(data[0]))
+            if who_edit == 0:
+                msg = "案件库已断开"
+            elif len(who_edit) == 0 or who_edit[0][0] == self.me["name"]:
+                self.record_database("insert or replace into "+table+" values (?"+",?"*(many-1)+")",*data)
+                self.search.actions()[0].setIcon(QIcon("icons\\add_ok.png"))
+                msg = ""
+            else:
+                msg = who_edit[0][0] + " 正在编辑该条，保存失败！"
+            if msg != "":
+                self.msg(msg)
             if os.path.exists(cachtxt):
                 os.remove(cachtxt)
-            self.search.actions()[0].setIcon(QIcon("icons\\add_ok.png"))
-            # txt = [re.sub("\s[0-9]{6}\s", " ", data[1]),data[1]+ " " + data[3] + "▶" + re.sub("^[0-9\s-]*?","",self.current_case["案件名"] if self.current_case["案件名"] != "" else self.log_case.currentText()),
-            # data[1][0:10] + " " + data[2]][what]
-            # root = None
-            # index = ["日志", "法律", "案件", "收藏"].index(self.search.actions()[0].objectName())
-            # if self.add_show == "main_tree":
-            #     root = self.current_item[index]
-            # else:
-            #     for i in range(self.main_tree.topLevelItemCount()):
-            #         if data[0] == self.main_tree.topLevelItem(i).data(0,QtCore.Qt.UserRole)[0]:
-            #             root = self.main_tree.topLevelItem(i)
-            #             break
-            #     if root is None:
-            #         root = QTreeWidgetItem()
-            #         root.setFirstColumnSpanned(True)
-            #         self.main_tree_items[table].insert(0,root)
-            #         self.main_tree.insertTopLevelItem(0,root)
-            # icon = ["paper.png" if self.current_case["结案日期"] == "" else "paper_ok.png",
-            #         "tasks.png" if self.current_log[-1] == "" else "tasks_ok.png", "star.png"]
-            # if "ok" in icon[what]:
-            #     root.setForeground(0, QColor(100, 100, 100))
-            # else:
-            #     root.setForeground(0, QColor(0, 0, 0))
-            # root.setIcon(0, QIcon(icon[what]))
-            # root.setText(0, txt)
-            # root.setData(0, QtCore.Qt.UserRole, data)
-            # self.add_show = "main_tree"
-            # self.main_tree.setCurrentItem(root)
-            # self.current_item[index] = root
-            self.mutex.unlock()
+        self.mutex.unlock()
+
 
     def get_case(self):
         client = 0
@@ -436,13 +416,20 @@ class Attorney(MyWin):
         if client == 0:
             self.msg("请右键点击当事人设置委托人")
             return 0
+        name = self.casename()
         if self.current_case["案件名"] == "":
-            self.cach_case_inf()
-        elif re.sub("\s[0-9]{6}\s"," ",self.current_case["案件名"]) != re.sub("\s[0-9]{6}\s"," ",self.casename()):
-            self.cach_case_inf("rename")
+            self.current_case["id"] = str(self.case_start.date().toString("yyyyMMdd")) + str(time.strftime("%H%M%S"))
+            if os.path.exists(self.me["casedir"] + "\\" + name):
+                os.mkdir(self.me["casedir"] + "\\" + name)
+        elif re.sub("\s[0-9]{6}\s", " ", self.current_case["案件名"]) != re.sub("\s[0-9]{6}\s", " ",
+                                                                                self.casename()):
+            if os.path.exists(self.me["casedir"] + "\\" + self.current_case["案件名"]):
+                shutil.move(self.me["casedir"] + "\\" + self.current_case["案件名"], self.me["casedir"] + "\\" + name)
+            else:
+                os.mkdir(self.me["casedir"] + "\\" + name)
+        self.current_case["案件名"] = name
         self.setWindowTitle(self.current_case["案件名"])
-        return ["id","案件名", "事实理由", "法律法规", "备注", "结案日期","原告", "被告", "第三人", "案由", "诉讼请求",
-                   "管辖法院", "法官", "诉讼阶段"]
+        return 1
 
     def casename(self):
         yuan = self.current_case["原告"][0][0]
@@ -461,7 +448,7 @@ class Attorney(MyWin):
                 case[i] = j
         return case
 
-    def cach_case_inf(self,arg=""):
+    def cach_case_inf(self):
         who = self.sender().objectName()
         if who == "事实理由":
             self.current_case["事实理由"] = self.reson_txt.toPlainText()
@@ -486,19 +473,7 @@ class Attorney(MyWin):
                 icon = txt = ""
             parent[self.tree_case.currentIndex().row()][2] = txt
             self.tree_case.currentItem().setIcon(1, QIcon(icon))
-        if who == "记录完成":
-            name = self.casename()
-            if arg == "":
-                self.current_case["id"] = str(self.case_start.date().toString("yyyyMMdd"))+str(time.strftime("%H%M%S"))
-                os.mkdir(self.me["casedir"]+"\\"+name)
-            else:
-                if os.path.exists(self.me["casedir"]+"\\"+self.current_case["案件名"]):
-                    shutil.move(self.me["casedir"]+"\\"+self.current_case["案件名"],self.me["casedir"]+"\\"+name)
-                else:
-                    os.mkdir(self.me["casedir"]+"\\" + name)
-            self.current_case["案件名"] = name
-        with open("case.bt", "wb") as tt:
-            tt.write(pickle.dumps(self.current_case))
+        self.write_thread.start()
 
     def tree_menu(self):
         def up_law():
@@ -637,6 +612,10 @@ class Attorney(MyWin):
         if fetchall == 0:
             self.mutex.unlock()
             return
+        self.record_database('''create table if not exists editting (
+                                    id TEXT PRIMARY KEY,
+                                    who TEXT
+                                    )''')
         fetchall = self.record_database("select * from logs order by id desc")
         self.main_tree_items["logs"] = []
         for i in fetchall:
@@ -1002,7 +981,7 @@ class Attorney(MyWin):
         def add_case():
             if os.path.exists("case.bt"):
                 with open("case.bt", "rb") as txt:
-                    self.current_case = pickle.loads(txt.read())
+                    self.current_case = self.product_currentcase(pickle.loads(txt.read()))
             else:
                 self.current_case = self.product_currentcase()
             self.setWindowTitle("律师助手" if self.current_case["案件名"] == "" else self.current_case["案件名"])

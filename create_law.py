@@ -26,7 +26,7 @@ def convert_to_bytes(table,laws):
         codes = laws[i]
         law = [""]
         for code in codes:
-            if re.search("(^第.+?[条节章编][、.\s]*?)|(^[0-9一二三四五六七八九十]+[、.\s]*?)", code) is not None:
+            if re.search("(^第.+?[条节章编][、.\s]*?)|(^[0-9一二三四五六七八九十]+[、.\s]+?)", code) is not None:
                 law.append(code)
             else:
                 law[-1] = law[-1] + code
