@@ -2305,11 +2305,10 @@ class Attorney(MyWin):
             self.current_case[dataindex].append(["", "", ""])
             ran = [["", "", ""]]
         else:
-            if type(self.current_case[dataindex]) is bytes:
-                d = pickle.loads(self.current_case[dataindex])
-            else:
-                d = self.current_case[dataindex]
-            ran = [[d, "", ""]] if d is str else d
+            d = self.current_case[dataindex]
+            if type(d) is bytes:
+                d = pickle.loads(d)
+            ran = [[d, "", ""]] if type(d) is str else d
             n = 0
         for i in ran:
             if len(i) < 3:
