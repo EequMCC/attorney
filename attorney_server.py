@@ -1,5 +1,6 @@
 import os
 import pickle
+import re
 import socket
 import sqlite3
 import struct
@@ -8,13 +9,8 @@ import threading
 import time
 
 from PyQt5.QtCore import QObject, QMutex
-from PyQt5.QtNetwork import QUdpSocket, QHostAddress, QLocalSocket, QLocalServer
+from PyQt5.QtNetwork import QUdpSocket, QHostAddress, QLocalSocket, QLocalServer, QTcpSocket
 from PyQt5.QtWidgets import QApplication
-
-
-with open("profile.bt", "rb") as t:
-    me = pickle.loads(t.read())
-database = me["workspace"] + "\\" +"database.db"
 
 def checktable():
     conn = sqlite3.connect(database)
@@ -179,14 +175,18 @@ if __name__ == "__main__":
     serverName = 'attorneyServer'
     socketT = QLocalSocket()
     socketT.connectToServer(serverName)
+    # socketT = QTcpSocket()
+    # socketT.connectToHost()
     # 判定应用服务是否正常链接，如正常则证明程序实例已经在运行
     if socketT.waitForConnected(500):
         pass
     else:
+        with open("profile.bt", "rb") as t:
+            me = pickle.loads(t.read())
+        database = me["workspace"] + "\\" + "database.db"
         checktable()
         app = QApplication(sys.argv)
         localServer = QLocalServer()
         localServer.listen(serverName)
         server = Server()
         sys.exit(app.exec_())
-

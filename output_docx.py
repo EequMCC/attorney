@@ -210,6 +210,5 @@ def output_paper():
         os.startfile(file)
     except:
         pass
-
 output_paper()
 
